@@ -80,6 +80,7 @@
 - (CGRect) rectForEntireGrid;
 - (CGSize) sizeForEntireGrid;
 - (NSUInteger) numberOfItemsPerRow;
+- (NSUInteger) numberOfItemsPerColumn;
 
 - (CGRect) cellRectAtIndex: (NSUInteger) index;
 - (CGRect) cellRectForPoint: (CGPoint) point;

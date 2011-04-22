@@ -157,21 +157,62 @@
 	NSUInteger numPerRow = [self numberOfItemsPerRow];
     if ( numPerRow == 0 )       // avoid a divide-by-zero exception
         return ( CGSizeZero );
-	NSUInteger numRows = _numberOfItems / numPerRow;
-	if ( _numberOfItems % numPerRow != 0 )
-		numRows++;
 	
-	CGFloat height = ( ((CGFloat)ceilf((CGFloat)numRows * _actualCellSize.height)) + _topPadding + _bottomPadding );
-	if (height < _gridView.bounds.size.height)
+	NSUInteger numPerCol = 1;
+	if (_layoutDirection == AQGridViewLayoutDirectionVertical && !_gridView.usesPagedHorizontalScrolling) {
+		numPerCol = _numberOfItems / numPerRow;
+		if ( _numberOfItems % numPerRow != 0 )
+			numPerCol += 1;
+	} else {
+		numPerCol = [self numberOfItemsPerColumn];
+	}
+	
+	NSUInteger pages = (NSUInteger)ceilf(_numberOfItems / (CGFloat)(numPerCol * numPerRow));
+	
+	CGFloat height = ceilf((CGFloat)numPerCol * _actualCellSize.height) + _topPadding + _bottomPadding;
+	CGFloat width = ceilf(((CGFloat)numPerRow * _actualCellSize.width) * (CGFloat)pages) + _leftPadding + _rightPadding;
+	
+	if (height < CGRectGetHeight(_gridView.bounds)) {
 		height = _gridView.bounds.size.height;
+	}
 	
-	return ( CGSizeMake(((CGFloat)ceilf(_actualCellSize.width * numPerRow)) + _leftPadding + _rightPadding, height) );
+	if (width < CGRectGetWidth(_gridView.bounds)) {
+		width  = _gridView.bounds.size.width;
+	}
+	
+	return ( CGSizeMake(width, height) );
 }
 
+
+- (NSUInteger) numberOfItemsPerColumn {
+	
+	if (_layoutDirection == AQGridViewLayoutDirectionHorizontal || _gridView.usesPagedHorizontalScrolling) {
+		
+		NSUInteger rows = (NSUInteger)floorf(CGRectGetHeight(_gridView.bounds) / _actualCellSize.height);
+		if (rows == 0) {
+			rows += 1;
+		}
+		
+		return rows;
+		
+	}
+	
+	NSUInteger rows = (NSUInteger)floorf(_boundsSize.height / _actualCellSize.height);
+	if (rows == 0) {
+		rows += 1;
+	}
+
+	//NSLog(@"Bounds Size: %@", [NSValue valueWithCGSize:_boundsSize]);
+	//NSLog(@"Rows: %i", rows);
+	
+	return  rows;
+}
+
+
 - (NSUInteger) numberOfItemsPerRow
-{
+{	
 	if ( _layoutDirection == AQGridViewLayoutDirectionVertical )
-		return ( (NSUInteger)floorf(_boundsSize.width / _actualCellSize.width) );
+		return ( (NSUInteger)floorf(CGRectGetWidth(_gridView.bounds) / _actualCellSize.width) );
 	
 	// work out how many rows we can fit
 	NSUInteger rows = (NSUInteger)floorf(_boundsSize.height / _actualCellSize.height);
@@ -187,14 +228,23 @@
 
 - (CGRect) cellRectAtIndex: (NSUInteger) index
 {
+	NSUInteger numPerCol = [self numberOfItemsPerColumn];
 	NSUInteger numPerRow = [self numberOfItemsPerRow];
     if ( numPerRow == 0 )       // avoid a divide-by-zero exception
         return ( CGRectZero );
 	NSUInteger skipRows = index / numPerRow;
 	NSUInteger skipCols = index % numPerRow;
 	
+	NSUInteger page = 0;
+	if (_gridView.usesPagedHorizontalScrolling) {
+		page = index / (numPerCol * numPerRow);
+		skipRows -= numPerCol * page;
+	}
+	
+	//UILog(@"Index: %i, Page: %i, Num PCol: %i, Num PRow: %i", index, page, numPerCol, numPerRow);
+	
 	CGRect result = CGRectZero;
-	result.origin.x = _actualCellSize.width * (CGFloat)skipCols + _leftPadding;
+	result.origin.x = _actualCellSize.width * (CGFloat)skipCols + _leftPadding + (_actualCellSize.width * (CGFloat)numPerRow * (CGFloat)page);
 	result.origin.y = (_actualCellSize.height  * (CGFloat)skipRows) + _topPadding;
 	result.size = _actualCellSize;
 	
@@ -210,12 +260,14 @@
 	{
 		CGRect cellRect = [self cellRectAtIndex: i];
 		
+		/*
 		if ( CGRectGetMaxY(cellRect) < CGRectGetMinY(aRect) )
 		{
 			// jump forward to the next row
 			i += (numPerRow - 1);
 			continue;
 		}
+		*/
 		
 		if ( CGRectIntersectsRect(cellRect, aRect) )
 		{
