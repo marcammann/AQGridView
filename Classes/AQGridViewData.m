@@ -254,7 +254,7 @@
 - (NSIndexSet *) indicesOfCellsInRect: (CGRect) aRect
 {
 	NSMutableIndexSet * result = [NSMutableIndexSet indexSet];
-	NSUInteger numPerRow = [self numberOfItemsPerRow];
+	//NSUInteger numPerRow = [self numberOfItemsPerRow];
 	
 	for ( NSUInteger i = 0; i < _numberOfItems; i++ )
 	{

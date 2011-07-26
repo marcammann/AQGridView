@@ -127,6 +127,7 @@ extern NSString * const AQGridViewSelectionDidChangeNotification;
 	
 	struct
 	{
+		unsigned	layoutCells:1;
 		unsigned	resizesCellWidths:1;
 		unsigned	numColumns:6;
 		unsigned	separatorStyle:3;
@@ -189,7 +190,12 @@ extern NSString * const AQGridViewSelectionDidChangeNotification;
 - (NSArray *) visibleCells;
 - (NSIndexSet *) visibleCellIndices;
 
+- (void)setLayoutCells:(BOOL)layout;
+
 - (void) scrollToItemAtIndex: (NSUInteger) index atScrollPosition: (AQGridViewScrollPosition) scrollPosition animated: (BOOL) animated;
+
+
+- (void) layoutAllCells;
 
 // Insertion/deletion/reloading
 
@@ -210,6 +216,11 @@ extern NSString * const AQGridViewSelectionDidChangeNotification;
 - (NSUInteger) indexOfSelectedItem;		// returns NSNotFound if no item is selected
 - (void) selectItemAtIndex: (NSUInteger) index animated: (BOOL) animated scrollPosition: (AQGridViewScrollPosition) scrollPosition;
 - (void) deselectItemAtIndex: (NSUInteger) index animated: (BOOL) animated;
+
+- (NSIndexSet *)highlightedIndices;
+
+- (void) highlightItemAtIndex: (NSUInteger) index animated: (BOOL) animated scrollPosition: (AQGridViewScrollPosition) position;
+- (void) unhighlightItemAtIndex: (NSUInteger) index animated: (BOOL) animated;
 
 // Appearance
 

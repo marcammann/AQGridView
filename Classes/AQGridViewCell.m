@@ -184,7 +184,7 @@
 - (void) setSelected: (BOOL) value animated: (BOOL) animated
 {
 	_cellFlags.selected = (value ? 1 : 0);
-	[self setHighlighted: value animated: animated];
+	//[self setHighlighted: value animated: animated];
 }
 
 - (BOOL) isHighlighted

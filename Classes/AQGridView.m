@@ -133,6 +133,7 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 
 - (void)dealloc
 {
+	[_visibleIndices release]; _visibleIndices = nil;
 	[_visibleCells release];
 	[_reusableGridCells release];
 	[_highlightedIndices release];
@@ -302,8 +303,7 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	
 	_flags.separatorStyle = style;
 	
-	for ( AQGridViewCell * cell in _visibleCells )
-	{
+	for ( AQGridViewCell * cell in _visibleCells ) {
 		cell.separatorStyle = style;
 	}
 	
@@ -563,6 +563,10 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	[self setEditing:value animated:NO];
 }
 
+- (void)setLayoutCells:(BOOL)layout {
+	_flags.layoutCells = (int)layout;
+}
+
 #pragma mark -
 #pragma mark Data Management
 
@@ -625,7 +629,7 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	self.contentSize = [_gridData sizeForEntireGrid];
 	
     // fix up the visible index list
-    NSUInteger cutoff = MAX(0, _gridData.numberOfItems - [_visibleIndices count]);
+    //NSUInteger cutoff = MAX(0, _gridData.numberOfItems - [_visibleIndices count]);
     //_visibleIndices.location = MIN(_visibleIndices.location, cutoff);
 	//_visibleIndices.length = 0;
 	
@@ -652,14 +656,14 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	if ( (_flags.needsReload == 1) && (_animationCount == 0) && (_reloadingSuspendedCount == 0) )
 		[self reloadData];
 	
-	if ( (_reloadingSuspendedCount == 0) && (!CGRectIsEmpty([self gridViewVisibleBounds])) )
+	if ( (_reloadingSuspendedCount == 0) && (!CGRectIsEmpty([self gridViewVisibleBounds])))
 	{
-		NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+		//NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 		[self updateVisibleGridCellsNow];
-		[pool release];
+		//[pool release];
 	}
 	
-	if ( _flags.allCellsNeedLayout == 1 )
+	if ( _flags.allCellsNeedLayout == 1)
 	{
 		_flags.allCellsNeedLayout = 0;
 		if ( [_visibleIndices count] != 0 )
@@ -688,7 +692,6 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	for (; actualHeight < minimumHeight; actualHeight += [_gridData cellSize].height) {
 	}
 	backgroundRect.size.height = actualHeight;
-	
 
 	self.backgroundView.frame = backgroundRect;
 	
@@ -824,7 +827,8 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 	}
 	
 	// update the visible item list appropriately
-	NSIndexSet * indices = [_gridData indicesOfCellsInRect: self.bounds];
+	NSIndexSet * indices = [_gridData indicesOfCellsInRect:self.bounds];
+	
 	[_visibleIndices release];
 	_visibleIndices = [indices retain];
 	
@@ -1031,6 +1035,11 @@ NSString * const AQGridViewSelectionDidChangeNotification = @"AQGridViewSelectio
 
 #pragma mark -
 #pragma mark Selection
+
+- (NSIndexSet *)highlightedIndices 
+{
+	return ( _highlightedIndices );
+}
 
 - (NSUInteger) indexOfSelectedItem
 {
@@ -1442,6 +1451,10 @@ passToSuper:
 }
 
 
+- (void)layoutAllCells {
+	
+}
+
 @end
 
 #pragma mark -
@@ -1457,6 +1470,8 @@ passToSuper:
 		}
 		index += 1;
 	}
+	
+	return 0;
 }
 
 @end
@@ -1493,26 +1508,34 @@ passToSuper:
 	
 	
 	NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-	NSIndexSet * newVisibleIndices = [_gridData indicesOfCellsInRect: [self gridViewVisibleBounds]];
+	NSIndexSet * newVisibleIndices = [_gridData indicesOfCellsInRect: CGRectInset([self gridViewVisibleBounds], -100.0f, -100.0f)];
 	
 	//NSLog(@"New Visible Indices: %@", newVisibleIndices);
 	
 	BOOL enableAnim = [UIView areAnimationsEnabled];
 	[UIView setAnimationsEnabled: NO];
 	
+	NSMutableIndexSet *changes = [NSMutableIndexSet indexSet];
+	
+	[newVisibleIndices enumerateIndexesUsingBlock:^(NSUInteger idx, BOOL *stop){
+		if (![_visibleIndices containsIndex:idx]) {
+			[changes addIndex:idx];
+		}
+	}];
+	
 	@try
 	{
 		// a couple of simple tests
-		if ( ([_visibleCells count] != [newVisibleIndices count]) ||
-			(![newVisibleIndices isEqualToIndexSet:_visibleIndices]) )
+		if ( [changes count] > 0 || [newVisibleIndices count] != [_visibleCells count])
 		{
+			// NSLog(@"Something Changed: %@ / %@", newVisibleIndices, _visibleIndices);
 			// something has changed. Compute intersections and remove/add cells as required
 			NSIndexSet *currentVisibleIndices = _visibleIndices;
 			
 			//NSLog(@"Current Visible Indices: %@", currentVisibleIndices);
 			
 			// index sets for removed and inserted items
-			NSMutableIndexSet *removedIndices = nil, * insertedIndices = nil;
+			NSMutableIndexSet *removedIndices = nil, *insertedIndices = nil;
 			
 			removedIndices = [[[currentVisibleIndices aq_indexesOutsideIndexSet: newVisibleIndices] mutableCopy] autorelease];
 			insertedIndices = [[[newVisibleIndices aq_indexesOutsideIndexSet: currentVisibleIndices] mutableCopy] autorelease];
@@ -1546,6 +1569,7 @@ passToSuper:
 				
 				// put them into the cell reuse queue
 				[self enqueueReusableCells:removedCells];				
+				[removedCells release];
 				
 				[_visibleCells removeObjectsAtIndexes:removedVisibleIndices];
 			}
@@ -1620,7 +1644,9 @@ passToSuper:
                 NSMutableIndexSet * animatingDestinationIndices = [[NSMutableIndexSet alloc] init];
                 for ( AQGridViewAnimatorItem * item in _animatingCells )
                 {
-                    [animatingDestinationIndices addIndex: item.index];
+					// TODO: What is this doing here?!
+					NSLog(@"Removed Method, not clear what it's doing");
+                    //[animatingDestinationIndices addIndex: item.index];
                 }
 				
 				NSMutableIndexSet * toRemove = [[NSMutableIndexSet alloc] init];
@@ -1662,8 +1688,8 @@ passToSuper:
 					[visibleSet addIndex: cell.displayIndex];
 				}
 				
-				NSMutableIndexSet * missingSet = [newVisibleIndices mutableCopy];
-				[missingSet removeIndexes: visibleSet];
+				NSMutableIndexSet *missingSet = [newVisibleIndices mutableCopy];
+				[missingSet removeIndexes:visibleSet];
 				[visibleSet release];
 				
 				NSLog( @"Got %lu missing indices", (unsigned long)[missingSet count] );
@@ -1688,7 +1714,9 @@ passToSuper:
 			//_visibleIndices.location = [newVisibleIndices firstIndex];
 			//_visibleIndices.length   = [newVisibleIndices count];
 			[_visibleIndices release];
-			_visibleIndices = [[newVisibleIndices copy] retain];
+			_visibleIndices = newVisibleIndices;
+			[_visibleIndices retain];
+			newVisibleIndices = nil;
 			
 			// layout these cells -- this will also sort the visible cell list
 			[self layoutAllCells];
@@ -1703,9 +1731,15 @@ passToSuper:
 }
 
 
-- (void) layoutCellsInVisibleCellRange: (NSRange) range
-{
-	NSParameterAssert(range.location + range.length <= [_visibleCells count]);
+- (void)layoutCellsInVisibleCellRange:(NSRange) range {
+	
+	//NSLog(@"Layout Range: %i / %i", range.location, range.length);
+	
+	//NSParameterAssert(range.location + range.length <= [_visibleCells count]);
+	
+	if ([_visibleCells count] == 0) {
+		return;
+	}
 	
 	NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 	
@@ -1715,13 +1749,14 @@ passToSuper:
 		if ( [_animatingIndices containsIndex: cell.displayIndex] )
 			continue;		// don't adjust layout of something that is animating around
 		
+		//NSLog(@"Display Index: %i", cell.displayIndex);
+		
 		CGRect gridRect = [_gridData cellRectAtIndex: cell.displayIndex];
 		CGRect cellFrame = cell.frame;
 		
-		cell.frame = [self fixCellFrame: cellFrame forGridRect: gridRect];
-		
-		//UILog(@"Cell Frame: %@ / Fixed: %@", [NSValue valueWithCGRect:cellFrame], [NSValue valueWithCGRect:cell.frame]);
-		
+		cellFrame = [self fixCellFrame: cellFrame forGridRect: gridRect];
+		//NSLog(@"Cell Frame: %@", [NSValue valueWithCGRect:cellFrame]);
+		cell.frame = cellFrame;
 		cell.selected = (cell.displayIndex == _selectedIndex);
 	}
 	
@@ -1732,6 +1767,7 @@ passToSuper:
 {
 	[self sortVisibleCellList];
 	
+	//NSLog(@"Visible Indices: %@", _visibleIndices);
 	NSRange range = NSMakeRange(0, [_visibleIndices count]);
 	[self layoutCellsInVisibleCellRange: range];
 }
