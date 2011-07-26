@@ -98,7 +98,17 @@
 	NSUInteger x = (NSUInteger)floorf(point.x);
 	NSUInteger col = x / (NSUInteger)_actualCellSize.width;
 	
-	NSUInteger result = (row * [self numberOfItemsPerRow]) + col;
+	NSUInteger page = 0;
+    if (_gridView.usesPagedHorizontalScrolling)
+    {
+        col = col % ([self numberOfItemsPerRow]);
+        
+        CGFloat pageWidth = _gridView.frame.size.width;
+        page = floor((_gridView.contentOffset.x - pageWidth / 2) / pageWidth) + 1;
+    }	
+    
+    NSUInteger result = (row * [self numberOfItemsPerRow]) + col + page * (CGFloat)([self numberOfItemsPerColumn] * [self numberOfItemsPerRow]);
+	
 	if ( result >= self.numberOfItems )
 		result = NSNotFound;
 	
